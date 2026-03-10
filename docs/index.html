@@ -23,5 +23,212 @@
         <li>Step two</li>
         <li>Step three</li>
     </ol>
+    
+    <!-- Flappy bird game section -->
+    <h2>Flappy Bird Game</h2>
+    <canvas id="flappyCanvas" width="320" height="480" style="border:1px solid #000"></canvas>
+    <script>
+        // Simple Flappy Bird clone
+        const canvas = document.getElementById('flappyCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let frames = 0;
+        const DEGREE = Math.PI/180;
+
+        // load sprite image
+        const sprite = new Image();
+        sprite.src = 'https://i.imgur.com/Ts6vWv7.png'; // public sprite sheet
+
+        // game state
+        const state = {
+            current: 0,
+            getReady: 0,
+            game: 1,
+            over: 2
+        };
+
+        // control
+        canvas.addEventListener('click', function(evt){
+            switch(state.current){
+                case state.getReady:
+                    state.current = state.game;
+                    break;
+                case state.game:
+                    bird.flap();
+                    break;
+                case state.over:
+                    pipes.reset();
+                    bird.speedReset();
+                    score.reset();
+                    state.current = state.getReady;
+                    break;
+            }
+        });
+
+        // bird
+        const bird = {
+            x: 50,
+            y: 150,
+            width: 34,
+            height: 24,
+
+            frame: 0,
+            gravity: 0.25,
+            jump: 4.6,
+            speed: 0,
+            rotation: 0,
+
+            draw: function(){
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+                ctx.drawImage(sprite, 276, 112, this.width, this.height, - this.width/2, - this.height/2, this.width, this.height);
+                ctx.restore();
+            },
+            flap: function(){
+                this.speed = - this.jump;
+            },
+            update: function(){
+                // if game state is get ready, bird floats
+                this.period = state.current == state.getReady ? 10 : 5;
+                this.frame += frames % this.period == 0 ? 1 : 0;
+                this.frame = this.frame % 3;
+
+                if(state.current == state.getReady){
+                    this.y = 150; // reset position
+                    this.rotation = 0 * DEGREE;
+                } else {
+                    this.speed += this.gravity;
+                    this.y += this.speed;
+
+                    if(this.y + this.height/2 >= canvas.height - 112){
+                        this.y = canvas.height - 112 - this.height/2;
+                        if(state.current == state.game){
+                            state.current = state.over;
+                        }
+                    }
+
+                    // rotation
+                    if(this.speed >= this.jump){
+                        this.rotation = 90 * DEGREE;
+                        this.frame = 1;
+                    } else {
+                        this.rotation = -25 * DEGREE;
+                    }
+                }
+            },
+            speedReset : function(){
+                this.speed = 0;
+            }
+        };
+
+        // pipes
+        const pipes = {
+            position: [],
+
+            top: {
+                sx: 553,
+                sy: 0
+            },
+            bottom: {
+                sx: 502,
+                sy: 0
+            },
+
+            width: 53,
+            height: 400,
+            gap: 85,
+            maxYPos: -150,
+            dx: 2,
+
+            draw: function(){
+                for(let i = 0; i < this.position.length; i++){
+                    let p = this.position[i];
+
+                    let topYPos = p.y;
+                    let bottomYPos = p.y + this.height + this.gap;
+
+                    // top pipe
+                    ctx.drawImage(sprite, this.top.sx, this.top.sy, this.width, this.height, p.x, topYPos, this.width, this.height);
+
+                    // bottom pipe
+                    ctx.drawImage(sprite, this.bottom.sx, this.bottom.sy, this.width, this.height, p.x, bottomYPos, this.width, this.height);
+                }
+            },
+
+            update: function(){
+                if(state.current !== state.game) return;
+                if(frames % 100 == 0){
+                    this.position.push({
+                        x: canvas.width,
+                        y: this.maxYPos * (Math.random() + 1)
+                    });
+                }
+                for(let i = 0; i < this.position.length; i++){
+                    let p = this.position[i];
+
+                    p.x -= this.dx;
+
+                    if(p.x + this.width <= 0){
+                        this.position.shift();
+                        score.value += 1;
+                        score.best = Math.max(score.value, score.best);
+                    }
+                }
+            },
+
+            reset: function(){
+                this.position = [];
+            }
+        };
+
+        // score
+        const score = {
+            best : parseInt(localStorage.getItem("best")) || 0,
+            value : 0,
+
+            draw : function(){
+                ctx.fillStyle = "#FFF";
+                ctx.strokeStyle = "#000";
+                if(state.current == state.game){
+                    ctx.lineWidth = 2;
+                    ctx.font = "35px Tahoma";
+                    ctx.fillText(this.value, canvas.width/2, 50);
+                    ctx.strokeText(this.value, canvas.width/2, 50);
+                } else if(state.current == state.over){
+                    ctx.font = "25px Tahoma";
+                    ctx.fillText(this.value, 225, 186);
+                    ctx.fillText(this.best, 225, 228);
+                }
+            },
+
+            reset : function(){
+                this.value = 0;
+            }
+        };
+
+        function draw(){
+            ctx.fillStyle = "#70c5ce";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            pipes.draw();
+            bird.draw();
+            score.draw();
+        }
+
+        function update(){
+            bird.update();
+            pipes.update();
+        }
+
+        function loop(){
+            update();
+            draw();
+            frames++;
+            requestAnimationFrame(loop);
+        }
+
+        loop();
+    </script>
     <body>
 </html>
