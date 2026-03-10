@@ -28,16 +28,12 @@
     <h2>Flappy Bird Game</h2>
     <canvas id="flappyCanvas" width="320" height="480" style="border:1px solid #000"></canvas>
     <script>
-        // Simple Flappy Bird clone
+        // Simple Flappy Bird clone using shapes instead of external sprites
         const canvas = document.getElementById('flappyCanvas');
         const ctx = canvas.getContext('2d');
 
         let frames = 0;
         const DEGREE = Math.PI/180;
-
-        // load sprite image
-        const sprite = new Image();
-        sprite.src = 'https://i.imgur.com/Ts6vWv7.png'; // public sprite sheet
 
         // game state
         const state = {
@@ -47,8 +43,8 @@
             over: 2
         };
 
-        // control
-        canvas.addEventListener('click', function(evt){
+        // universal event handler for clicks, touches, and spacebar
+        function handleInput(){
             switch(state.current){
                 case state.getReady:
                     state.current = state.game;
@@ -63,16 +59,24 @@
                     state.current = state.getReady;
                     break;
             }
+        }
+
+        canvas.addEventListener('click', handleInput);
+        canvas.addEventListener('touchstart', function(e){
+            e.preventDefault();
+            handleInput();
+        }, {passive:false});
+        document.addEventListener('keydown', function(e){
+            if(e.code === 'Space'){
+                handleInput();
+            }
         });
 
-        // bird
+        // bird object
         const bird = {
             x: 50,
             y: 150,
-            width: 34,
-            height: 24,
-
-            frame: 0,
+            radius: 12,
             gravity: 0.25,
             jump: 4.6,
             speed: 0,
@@ -82,36 +86,29 @@
                 ctx.save();
                 ctx.translate(this.x, this.y);
                 ctx.rotate(this.rotation);
-                ctx.drawImage(sprite, 276, 112, this.width, this.height, - this.width/2, - this.height/2, this.width, this.height);
+                ctx.fillStyle = '#FFC600';
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius, 0, 2*Math.PI);
+                ctx.fill();
                 ctx.restore();
             },
             flap: function(){
                 this.speed = - this.jump;
             },
             update: function(){
-                // if game state is get ready, bird floats
-                this.period = state.current == state.getReady ? 10 : 5;
-                this.frame += frames % this.period == 0 ? 1 : 0;
-                this.frame = this.frame % 3;
-
                 if(state.current == state.getReady){
-                    this.y = 150; // reset position
-                    this.rotation = 0 * DEGREE;
+                    this.y = 150; // reset
+                    this.rotation = 0;
                 } else {
                     this.speed += this.gravity;
                     this.y += this.speed;
-
-                    if(this.y + this.height/2 >= canvas.height - 112){
-                        this.y = canvas.height - 112 - this.height/2;
-                        if(state.current == state.game){
-                            state.current = state.over;
-                        }
+                    if(this.y + this.radius >= canvas.height - 20){
+                        this.y = canvas.height - 20 - this.radius;
+                        if(state.current == state.game) state.current = state.over;
                     }
-
                     // rotation
                     if(this.speed >= this.jump){
                         this.rotation = 90 * DEGREE;
-                        this.frame = 1;
                     } else {
                         this.rotation = -25 * DEGREE;
                     }
@@ -122,53 +119,30 @@
             }
         };
 
-        // pipes
+        // pipes object
         const pipes = {
             position: [],
-
-            top: {
-                sx: 553,
-                sy: 0
-            },
-            bottom: {
-                sx: 502,
-                sy: 0
-            },
-
-            width: 53,
-            height: 400,
-            gap: 85,
-            maxYPos: -150,
+            width: 50,
+            gap: 120,
             dx: 2,
 
             draw: function(){
-                for(let i = 0; i < this.position.length; i++){
-                    let p = this.position[i];
-
-                    let topYPos = p.y;
-                    let bottomYPos = p.y + this.height + this.gap;
-
-                    // top pipe
-                    ctx.drawImage(sprite, this.top.sx, this.top.sy, this.width, this.height, p.x, topYPos, this.width, this.height);
-
-                    // bottom pipe
-                    ctx.drawImage(sprite, this.bottom.sx, this.bottom.sy, this.width, this.height, p.x, bottomYPos, this.width, this.height);
+                ctx.fillStyle = '#0F0';
+                for(let p of this.position){
+                    ctx.fillRect(p.x, 0, this.width, p.top);
+                    ctx.fillRect(p.x, p.top + this.gap, this.width, canvas.height - (p.top + this.gap));
                 }
             },
 
             update: function(){
                 if(state.current !== state.game) return;
-                if(frames % 100 == 0){
-                    this.position.push({
-                        x: canvas.width,
-                        y: this.maxYPos * (Math.random() + 1)
-                    });
+                if(frames % 100 === 0){
+                    const topHeight = Math.random() * (canvas.height - this.gap - 40) + 20;
+                    this.position.push({x: canvas.width, top: topHeight});
                 }
                 for(let i = 0; i < this.position.length; i++){
                     let p = this.position[i];
-
                     p.x -= this.dx;
-
                     if(p.x + this.width <= 0){
                         this.position.shift();
                         score.value += 1;
@@ -182,23 +156,19 @@
             }
         };
 
-        // score
+        // score object
         const score = {
             best : parseInt(localStorage.getItem("best")) || 0,
             value : 0,
 
             draw : function(){
-                ctx.fillStyle = "#FFF";
-                ctx.strokeStyle = "#000";
+                ctx.fillStyle = "#000";
+                ctx.font = "30px sans-serif";
                 if(state.current == state.game){
-                    ctx.lineWidth = 2;
-                    ctx.font = "35px Tahoma";
-                    ctx.fillText(this.value, canvas.width/2, 50);
-                    ctx.strokeText(this.value, canvas.width/2, 50);
+                    ctx.fillText(this.value, canvas.width/2-10, 40);
                 } else if(state.current == state.over){
-                    ctx.font = "25px Tahoma";
-                    ctx.fillText(this.value, 225, 186);
-                    ctx.fillText(this.best, 225, 228);
+                    ctx.fillText(this.value, canvas.width/2-10, 200);
+                    ctx.fillText("Best: " + this.best, canvas.width/2-40, 230);
                 }
             },
 
@@ -210,7 +180,6 @@
         function draw(){
             ctx.fillStyle = "#70c5ce";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-
             pipes.draw();
             bird.draw();
             score.draw();
@@ -228,7 +197,8 @@
             requestAnimationFrame(loop);
         }
 
+        // start loop immediately
         loop();
     </script>
-    <body>
+    </body>
 </html>
